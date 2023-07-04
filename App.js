@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { KeyboardAvoidingView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
+import { KeyboardAvoidingView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert, ScrollView } from 'react-native';
 import * as FileSystem from 'expo-file-system';
 import { Audio } from 'expo-av';
 import * as MediaLibrary from 'expo-media-library';
 import * as ImagePicker from 'expo-image-picker';
-
-import Task from './components/Task';
 
 export default function App() {
   const [task, setTask] = useState('');
@@ -55,6 +53,11 @@ export default function App() {
     await saveTasks([...taskItems, { text: newTask, audio: audioFile }]);
   };
 
+  const annuler=()=>{
+    //setTask('');
+    setAudioFile(null);
+  }
+
   const deleteTask = async (index) => {
     let itemsCopy = [...taskItems];
     itemsCopy.splice(index, 1);
@@ -103,7 +106,6 @@ export default function App() {
           linearPCMIsFloat: false,
         },
       };
-
       const { recording } = await Audio.Recording.createAsync(recordingOptions);
       setRecording(recording);
     } catch (error) {
@@ -115,126 +117,152 @@ export default function App() {
     try {
       await recording.stopAndUnloadAsync();
       const uri = recording.getURI();
-      setAudioFile(uri);
       setRecording(null);
-      await saveAudioToLibrary(uri);
+      setAudioFile(uri);
     } catch (error) {
       console.log(error);
     }
   };
 
-  const saveAudioToLibrary = async (uri) => {
+  const playSound = async (audio) => {
     try {
-      await MediaLibrary.saveToLibraryAsync(uri);
+      if (sound) {
+        await sound.unloadAsync();
+        setSound(null);
+      }
+
+      const { sound: newSound } = await Audio.Sound.createAsync({ uri: audio });
+      setSound(newSound);
+      await newSound.playAsync();
     } catch (error) {
       console.log(error);
     }
   };
 
-  const askPermissions = async () => {
+  
+
+  const stopSound = async () => {
     try {
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
-        console.log('Permission not granted');
-        return;
+      if (sound) {
+        await sound.stopAsync();
       }
     } catch (error) {
       console.log(error);
     }
-  };
-
-  const playSound = async (uri) => {
-    try {
-      const { sound } = await Audio.Sound.createAsync({ uri });
-      setSound(sound);
-      await sound.playAsync();
-    } catch (error) {
-      console.log(error);
-    }
-  };
-
-  const pauseSound = async () => {
-    if (sound) {
-      await sound.pauseAsync();
-    }
-  };
-
-  const resumeSound = async () => {
-    if (sound) {
-      await sound.playAsync();
-    }
-  };
-
-  const handleTextChange = async (index, newText) => {
-    let itemsCopy = [...taskItems];
-    itemsCopy[index].text = newText;
-    setTaskItems(itemsCopy);
-
-    await saveTasks(itemsCopy);
   };
 
   useEffect(() => {
-    askPermissions();
     loadTasks();
-
-    return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
-    };
   }, []);
 
   return (
     <View style={styles.container}>
+      <ScrollView>
       <View style={styles.tasksWrapper}>
-        <Text style={styles.sectionTitle}>Today's tasks</Text>
+        <Text style={styles.sectionTitle}>Liste des tâches</Text>
         <View style={styles.items}>
-          {taskItems.map((item, index) => (
-            <View key={index} style={styles.taskContainer}>
-              <View style={styles.taskTextContainer}>
-                <TextInput
-                  style={styles.taskText}
-                  value={item.text}
-                  onChangeText={(newText) => handleTextChange(index, newText)}
-                />
-              </View>
-              <View style={styles.taskOptions}>
-                <TouchableOpacity onPress={() => playSound(item.audio)}>
-                  <Text style={styles.audioButton}>Play</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={pauseSound}>
-                  <Text style={styles.audioButton}>Pause</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={resumeSound}>
-                  <Text style={styles.audioButton}>Resume</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => confirmDelete(index)}>
-                  <Text style={styles.deleteButton}>X</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
+          {taskItems.map((item, index) => {
+            return (
+              <Task
+                key={index}
+                task={item}
+                onDelete={() => confirmDelete(index)}
+                onPlay={() => playSound(item.audio)}
+                onStop={stopSound}
+              />
+            );
+          })}
         </View>
       </View>
+      </ScrollView>
+      <View style={styles.audioButtonWrapper}>
+          {recording ? (
+            <TouchableOpacity style={styles.stopButtoni} onPress={stopRecording}>
+              <Text style={styles.buttonText}>Arrêter l'enregistrement</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <View style={styles.ali}>
+              <TouchableOpacity style={styles.audioButton} onPress={startRecording}>
+                <Text style={styles.buttonArret}>vocale </Text>
+              </TouchableOpacity>
+              {audioFile && (
+                
+                
+                <TouchableOpacity style={styles.playButton} onPress={() => playSound(audioFile)}>
+                  <Text style={styles.buttonLire}>Lire audio</Text>
+                  
+                </TouchableOpacity>
+               
+                
+              
+               
+                
+                
+                
+                
+                
+
+                
+                
+              )}
+              <TouchableOpacity style={styles.playButton} onPress={annuler}>
+                  <Text style={styles.buttonText}>X</Text>
+                  
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.playButton} onPress={rappelSonore}>
+                  <Text style={styles.buttonText}>Heure</Text>
+                  
+                </TouchableOpacity>
+
+
+              
+              </View>
+            </>
+          )}
+        </View>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.writeTaskWrapper}>
+        <View style={styles.inputWrapper} >
         <TextInput
           style={styles.input}
-          placeholder="Write a task"
+          placeholder={'Ajouter une tâche'}
           value={task}
           onChangeText={(text) => setTask(text)}
         />
-        <TouchableOpacity style={styles.recordButton} onPress={recording ? stopRecording : startRecording}>
-          <Text style={styles.recordButtonText}>{recording ? 'Stop Recording' : 'Start Recording'}</Text>
+         <TouchableOpacity style={styles.addButton} onPress={handleAddTask}>
+          <Text style={styles.addButtonLabel}>+</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={handleAddTask}>
-          <View style={styles.addWrapper}>
-            <Text style={styles.addText}>+</Text>
-          </View>
-        </TouchableOpacity>
+        </View>
+       
+       
       </KeyboardAvoidingView>
+      
     </View>
   );
 }
+
+const Task = ({ task, onDelete, onPlay, onStop }) => {
+  return (
+    <View style={styles.item}>
+      <View style={styles.itemLeft}>
+        <View style={styles.square}></View>
+        <Text style={styles.itemText}>{task.text}</Text>
+      </View>
+      <View style={styles.itemRight}>
+        <TouchableOpacity style={styles.playButton} onPress={onPlay}>
+          <Text style={styles.buttonText}>Jouer</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.stopButton} onPress={onStop}>
+          <Text style={styles.buttonText}>Arrêter</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
+          <Text style={styles.buttonText}>X</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -252,41 +280,13 @@ const styles = StyleSheet.create({
   items: {
     marginTop: 30,
   },
-  taskContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
-  taskTextContainer: {
-    flex: 1,
-    marginRight: 10,
-  },
-  taskText: {
-    backgroundColor: '#FFF',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#C0C0C0',
-  },
-  taskOptions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  audioButton: {
-    marginLeft: 10,
-    padding: 5,
-    borderRadius: 5,
-    backgroundColor: '#FF0000',
-    color: '#FFF',
-  },
-  deleteButton: {
-    marginLeft: 10,
-    padding: 5,
-    borderRadius: 5,
-    backgroundColor: 'red',
-    color: '#FFF',
+  annuleBtn:{
+    height:24,
+    width:24,
+    borderRadius:10,
+    backgroundColor:'red',
+    color:'white',
+    
   },
   writeTaskWrapper: {
     position: 'absolute',
@@ -296,6 +296,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     alignItems: 'center',
   },
+  ali:{
+      flexDirection: 'row',
+    
+      justifyContent: 'space-between',
+
+  },
   input: {
     paddingVertical: 15,
     paddingHorizontal: 15,
@@ -304,26 +310,118 @@ const styles = StyleSheet.create({
     borderColor: '#C0C0C0',
     borderWidth: 1,
     width: 250,
+    
   },
-  addWrapper: {
-    width: 60,
-    height: 60,
-    backgroundColor: '#FFF',
-    borderRadius: 60,
+  audioButtonWrapper: {
+    flexDirection: 'column',
     justifyContent: 'center',
     alignItems: 'center',
-    borderColor: '#C0C0C0',
-    borderWidth: 1,
+    marginTop:80,
   },
-  addText: {},
-  recordButton: {
-    backgroundColor: '#FF0000',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+  audioButton: {
+    backgroundColor: '#55BCF6',
+    padding: 15,
     borderRadius: 10,
+    marginTop: 10,
+    marginBottom: 10,
   },
-  recordButtonText: {
-    color: '#FFF',
+  playButton: {
+    backgroundColor: '#4CC9F0',
+    padding: 10,
+    borderRadius: 10,
+    marginTop: 10,
+    marginBottom: 10,
+    margin:10,
+  },
+  stopButton: {
+    backgroundColor: '#FF4949',
+    padding: 10,
+    borderRadius: 10,
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  stopButtoni:{
+    backgroundColor: '#FF4949',
+    padding: 10,
+    
+    borderRadius: 10,
+    marginTop: 80,
+    marginBottom: 10,
+  },
+  
+  buttonText: {
+    color: 'white',
     fontWeight: 'bold',
+  },
+
+  buttonArret:{
+    color: 'blue',
+    fontWeight: 'bold',
+    padding:-150,
+    marginLeft:12,
+  },
+  item: {
+    backgroundColor: '#FFF',
+    padding: 15,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  itemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  square: {
+    width: 24,
+    height: 24,
+    backgroundColor: '#55BCF6',
+    opacity: 0.4,
+    borderRadius: 5,
+    marginRight: 15,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    
+  },
+  input: {
+    flex: 1,
+    height: 50,
+    borderWidth: 1,
+    borderColor: '#C0C0C0',
+    backgroundColor:'#FFF',
+    borderRadius: 10,
+    padding: 10,
+    marginRight: 10,
+  },
+addButton: {
+    width: 50,
+    height: 50,
+    backgroundColor: '#FFF',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addButtonLabel: {
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  itemText: {
+    maxWidth: '80%',
+  },
+  itemRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  deleteButton: {
+    backgroundColor: '#FF4949',
+    padding: 10,
+    borderRadius: 10,
+    marginLeft: 10,
   },
 });
